@@ -1,0 +1,139 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>진자 주기 실험</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f2f6fc;color:#20304a;margin:0;padding:16px}
+main{max-width:600px;margin:auto}
+h1{text-align:center;color:#2459a9;font-size:25px}
+.card{background:white;border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 2px 8px #ccd5e3}
+canvas{width:100%;height:260px;display:block}
+label{display:block;margin:14px 0 6px;font-weight:bold}
+input,select,button{font-size:16px}
+input[type=range]{width:100%}
+button{border:0;border-radius:9px;padding:12px;margin:4px 2px;background:#2864c5;color:white}
+button.secondary{background:#64748b}
+.big{font-size:20px;font-weight:bold;color:#2459a9}
+table{width:100%;border-collapse:collapse}
+td,th{padding:8px;border:1px solid #d8dfeb;text-align:center}
+.note{font-size:13px;color:#64748b}
+</style>
+</head>
+<body>
+<main>
+<h1>🔬 진자의 왕복 운동 실험</h1>
+<p>진자의 길이에 따라 한 번 왕복하는 데 걸리는 시간이 어떻게 달라지는지 알아보자.</p>
+
+<div class="card">
+<canvas id="scene" width="500" height="280"></canvas>
+<div class="note">진자의 움직임을 관찰해 보세요.</div>
+</div>
+
+<div class="card">
+<label>진자의 길이: <span id="lenText">50</span> cm</label>
+<input id="len" type="range" min="10" max="100" step="10" value="50">
+
+<label>처음 기울인 각도: <span id="angleText">20</span>°</label>
+<input id="angle" type="range" min="5" max="40" value="20">
+
+<label>측정할 왕복 횟수</label>
+<select id="cycles">
+<option value="1">1회</option>
+<option value="5" selected>5회</option>
+<option value="10">10회</option>
+</select>
+
+<p>예상 1회 주기: <span class="big" id="period">1.42</span>초</p>
+<button id="start">실험 시작</button>
+<button class="secondary" id="stop">멈춤</button>
+<button class="secondary" id="reset">초기화</button>
+<p id="status">실험 시작을 눌러 주세요.</p>
+<p>진행한 왕복 횟수: <span id="count">0</span>회</p>
+<p>측정 시간: <span id="elapsed">0.00</span>초</p>
+</div>
+
+<div class="card">
+<h3>실험 결과 기록</h3>
+<table>
+<thead><tr><th>길이(cm)</th><th>왕복 횟수</th><th>시간(초)</th><th>1회 주기(초)</th></tr></thead>
+<tbody id="results"></tbody>
+</table>
+<button class="secondary" id="clear">기록 지우기</button>
+<p class="note">실험 시간은 시뮬레이션으로 측정됩니다. 실제 실험에서는 오차가 생길 수 있습니다.</p>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let running=false,started=0,raf=0,previousCycle=0,elapsed=0;
+const canvas=$("scene"),ctx=canvas.getContext("2d");
+function period(){return 2*Math.PI*Math.sqrt(Number($("len").value)/100/9.81)}
+function updateLabels(){
+ $("lenText").textContent=$("len").value;
+ $("angleText").textContent=$("angle").value;
+ $("period").textContent=period().toFixed(2);
+ draw(elapsed);
+}
+function draw(t){
+ const w=canvas.width,h=canvas.height;
+ ctx.clearRect(0,0,w,h);
+ const pivotX=w/2,pivotY=25;
+ const L=Number($("len").value)*1.65;
+ const angle=Number($("angle").value)*Math.PI/180*
+   Math.cos(2*Math.PI*t/period());
+ const x=pivotX+L*Math.sin(angle),y=pivotY+L*Math.cos(angle);
+ ctx.strokeStyle="#65758b";ctx.lineWidth=3;
+ ctx.beginPath();ctx.moveTo(pivotX-45,pivotY);ctx.lineTo(pivotX+45,pivotY);ctx.stroke();
+ ctx.fillStyle="#334155";ctx.beginPath();ctx.arc(pivotX,pivotY,5,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle="#2864c5";ctx.lineWidth=3;
+ ctx.beginPath();ctx.moveTo(pivotX,pivotY);ctx.lineTo(x,y);ctx.stroke();
+ ctx.fillStyle="#ef8b32";ctx.beginPath();ctx.arc(x,y,17,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle="#334155";ctx.font="16px Arial";ctx.textAlign="center";
+ ctx.fillText($("len").value+" cm",pivotX+55,pivotY+L/2);
+}
+function frame(now){
+ if(!running)return;
+ elapsed=(now-started)/1000;
+ const p=period(),n=Number($("cycles").value);
+ const count=Math.min(n,Math.floor(elapsed/p));
+ $("count").textContent=count;
+ $("elapsed").textContent=elapsed.toFixed(2);
+ $("status").textContent="실험 진행 중…";
+ draw(elapsed);
+ if(elapsed>=p*n){
+   running=false;elapsed=p*n;
+   $("elapsed").textContent=elapsed.toFixed(2);
+   $("count").textContent=n;
+   $("status").textContent="실험 완료!";
+   $("results").insertAdjacentHTML("beforeend",
+    `<tr><td>${$("len").value}</td><td>${n}</td><td>${elapsed.toFixed(2)}</td><td>${(elapsed/n).toFixed(2)}</td></tr>`);
+   return;
+ }
+ raf=requestAnimationFrame(frame);
+}
+$("len").addEventListener("input",updateLabels);
+$("angle").addEventListener("input",updateLabels);
+$("start").addEventListener("click",()=>{
+ if(running)return;
+ elapsed=0;started=performance.now();running=true;
+ $("count").textContent="0";$("elapsed").textContent="0.00";
+ $("status").textContent="실험 진행 중…";
+ raf=requestAnimationFrame(frame);
+});
+$("stop").addEventListener("click",()=>{
+ if(!running)return;
+ running=false;cancelAnimationFrame(raf);
+ $("status").textContent="실험이 멈췄습니다. 다시 시작하면 새로 측정합니다.";
+});
+$("reset").addEventListener("click",()=>{
+ running=false;cancelAnimationFrame(raf);elapsed=0;
+ $("count").textContent="0";$("elapsed").textContent="0.00";
+ $("status").textContent="초기화되었습니다.";draw(0);
+});
+$("clear").addEventListener("click",()=>$("results").innerHTML="");
+updateLabels();
+</script>
+</body>
+</html>
